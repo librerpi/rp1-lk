@@ -108,8 +108,6 @@ void pl011_uart_init(int nr, int irq, uintptr_t base) {
     register_int_handler(irq, &uart_irq, (void *)nr);
 #endif
 
-    uint32_t divisor = calculate_baud_divisor(115200);
-
     UARTREG(base, UART_CR) = 0; // shutdown the entire uart
 
     // clear all irqs
@@ -117,11 +115,6 @@ void pl011_uart_init(int nr, int irq, uintptr_t base) {
 
     UARTREG(base, UART_LCRH) = (3<<5) // 8bit mode
                 | (1<<4); // fifo enable
-
-    if (divisor > 0) {
-      UARTREG(base, UART_IBRD) = (divisor >> 6) & 0xffff;
-      UARTREG(base, UART_FBRD) = divisor & 0x3f;
-    }
 
     // set fifo trigger level
     UARTREG(base, UART_IFLS) = 4 << 3; // 7/8 rxfifo, 1/8 txfifo
@@ -139,18 +132,21 @@ void pl011_uart_init(int nr, int irq, uintptr_t base) {
 void pl011_uart_init_early(int nr, uintptr_t base) {
     assert(nr < NUM_UART);
     uart_base[nr] = base;
+    UARTREG(base, UART_CR) = 0; // shutdown the entire uart
     UARTREG(uart_to_ptr(nr), UART_CR) = (1<<8)|(1<<0); // tx_enable, uarten
 }
 
 int pl011_uart_putc(int port, char c) {
-    uintptr_t base = uart_to_ptr(port);
+  uintptr_t base = uart_to_ptr(port);
 
-    /* spin while fifo is full */
-    while (UARTREG(base, UART_TFR) & (1<<5))
-        ;
-    UARTREG(base, UART_DR) = c;
+  // if enable is clear, dont write
+  if ( (UARTREG(base, UART_CR) & 1) == 0) return 1;
 
-    return 1;
+  /* spin while fifo is full */
+  while (UARTREG(base, UART_TFR) & (1<<5)) ;
+  UARTREG(base, UART_DR) = c;
+
+  return 1;
 }
 
 int uart_getc(int port, bool wait) {
@@ -195,6 +191,11 @@ void uart_flush_tx(int port) {
 void uart_flush_rx(int port) {
 }
 
-void uart_init_port(int port, uint baud) {
+void pl011_set_baud(int port, uint baud) {
+  uintptr_t base = uart_to_ptr(port);
+  uint32_t divisor = calculate_baud_divisor(baud);
+
+  UARTREG(base, UART_IBRD) = (divisor >> 6) & 0xffff;
+  UARTREG(base, UART_FBRD) = divisor & 0x3f;
 }
 

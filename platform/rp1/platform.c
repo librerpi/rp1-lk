@@ -10,6 +10,7 @@
 #include <lk/reg.h>
 #include <lk/trace.h>
 #include <platform.h>
+#include <platform/gpio.h>
 #include <platform/platform_cm.h>
 #include <platform/time.h>
 #include <stdbool.h>
@@ -62,10 +63,15 @@ int platform_dgetc(char *c, bool wait) {
 
 void platform_dputc(char c) {
   //if (!uart_enabled) return;
-  //pl011_uart_putc(1, c);
+  pl011_uart_putc(1, c);
+  return;
+  #if 0
+
+  if ((*REG32(0x40034000 + 0x30) & 1) == 0) return;
 
   while (*REG32(0x40034000 + 0x18) & (1<<5));
   *REG32(0x40034000) = c; // uart1
+#endif
 }
 
 static void rp1_gpio_pad_config(int pin, uint32_t flag) {
@@ -73,28 +79,18 @@ static void rp1_gpio_pad_config(int pin, uint32_t flag) {
   pad[pin] = flag;
 }
 
-struct gpiocfg {
-  volatile uint32_t status;
-  volatile uint32_t ctrl;
-};
-
-static void rp1_gpio_ctrl_config(int pin, uint32_t flag) {
-  volatile struct gpiocfg *cfg = (volatile struct gpiocfg*)(0x400d0000);
-  cfg[pin].ctrl = flag;
-}
-
 static void mux_uart1_gpio01(void) {
   // Select the UART on GPIO 0 and 1 and enable them
-  *REG32(0x400d0004) = 0x82;  // gpio0 Function 2 = UART1
-  *REG32(0x400d000c) = 0x82;  // gpio1
+  rp1_gpio_set_ctrl(0, 2, 4);
+  rp1_gpio_set_ctrl(1, 2, 4);
 
   *REG32(0x400f0004) = 0x50;  // gpio0, Output enable, 4mA, no pull
   *REG32(0x400f0008) = 0xca;  // gpio1, Input enable, pull up, schmitt
 }
 
 static void mux_uart3_gpio89(void) {
-  rp1_gpio_ctrl_config(8, 0x82);
-  rp1_gpio_ctrl_config(9, 0x82);
+  rp1_gpio_set_ctrl(8, 2, 4);
+  rp1_gpio_set_ctrl(9, 2, 4);
 
   rp1_gpio_pad_config(8, 0x50);
   rp1_gpio_pad_config(9, 0xca);
@@ -106,13 +102,15 @@ void platform_early_init(void) {
     // start the systick timer
     arm_cm_systick_init(200 * 1000 * 1000);
     //pl011_uart_init_early(0, 0x40030000);
-    //pl011_uart_init_early(1, 0x40034000);
-    //mux_uart1_gpio01();
+    mux_uart1_gpio01();
     mux_uart3_gpio89();
+    pl011_uart_init_early(1, 0x40034000);
     //pl011_uart_init_early(2, 0x40038000);
     pl011_uart_init_early(3, 0x4003c000);
     //pl011_uart_init_early(4, 0x40040000);
     //pl011_uart_init_early(5, 0x40044000);
+    pl011_set_baud(1, 115200);
+    pl011_set_baud(3, 115200);
 }
 
 void platform_init(void) {
@@ -127,18 +125,4 @@ status_t unmask_interrupt(unsigned int vector) {
   printf("irq %d turned on\n", vector);
 
   return NO_ERROR;
-}
-
-
-void platform_halt(platform_halt_action suggested_action, platform_halt_reason reason) {
-/*
-  if (suggested_action == HALT_ACTION_HALT) {
-    dprintf(ALWAYS, "returning to ROM, reason: %d\n", reason);
-    //*REG32(0x4015400c) = 0;
-    arch_disable_ints();
-  }
-*/
-  dprintf(ALWAYS, "HALT: spinning forever... (reason = %d)\n", reason);
-  arch_disable_ints();
-  for (;;);
 }

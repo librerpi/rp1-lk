@@ -6,7 +6,7 @@ GLOBAL_INCLUDES += $(LOCAL_DIR)/include
 #LINKER_SCRIPT = $(LOCAL_DIR)/linker.ld
 LINKER_SCRIPT += $(BUILDDIR)/system-onesegment.ld
 
-MODULE_SRCS += $(LOCAL_DIR)/platform.c $(LOCAL_DIR)/irq.c
+MODULE_SRCS += $(LOCAL_DIR)/platform.c $(LOCAL_DIR)/irq.c $(LOCAL_DIR)/gpio.c
 
 PL011_UART_COUNT := 4
 
