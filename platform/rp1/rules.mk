@@ -6,8 +6,16 @@ GLOBAL_INCLUDES += $(LOCAL_DIR)/include
 #LINKER_SCRIPT = $(LOCAL_DIR)/linker.ld
 LINKER_SCRIPT += $(BUILDDIR)/system-onesegment.ld
 
-MODULE_SRCS += $(LOCAL_DIR)/platform.c
+MODULE_SRCS += $(LOCAL_DIR)/platform.c $(LOCAL_DIR)/irq.c
 
-MODULE_DEPS += arch/arm/arm-m/systick
+PL011_UART_COUNT := 4
+
+MODULE_DEPS += arch/arm/arm-m/systick dev/uart/pl011
+
+#GLOBAL_DEFINES += NOVM_DEFAULT_ARENA=0
+GLOBAL_DEFINES += CONSOLE_ENABLE_HISTORY=0
+GLOBAL_DEFINES += THREAD_STACK_HIGHWATER=1 THREAD_STACK_PADDING_SIZE=32
+
+DEBUG := 1
 
 include make/module.mk
