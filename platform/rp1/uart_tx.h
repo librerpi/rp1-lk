@@ -13,23 +13,21 @@
 // ------- //
 
 #define uart_tx_wrap_target 0
-#define uart_tx_wrap 5
+#define uart_tx_wrap 3
 
 static const uint16_t uart_tx_program_instructions[] = {
             //     .wrap_target
-    0xe001, //  0: set    pins, 1                    
-    0x86a0, //  1: pull   block                  [6] 
-    0xe000, //  2: set    pins, 0                    
-    0xe627, //  3: set    x, 7                   [6] 
-    0x6001, //  4: out    pins, 1                    
-    0x0644, //  5: jmp    x--, 4                 [6] 
+    0x9fa0, //  0: pull   block           side 1 [7] 
+    0xf727, //  1: set    x, 7            side 0 [7] 
+    0x6001, //  2: out    pins, 1                    
+    0x0642, //  3: jmp    x--, 2                 [6] 
             //     .wrap
 };
 
 #if !PICO_NO_HARDWARE
 static const struct pio_program uart_tx_program = {
     .instructions = uart_tx_program_instructions,
-    .length = 6,
+    .length = 4,
     .origin = -1,
 };
 

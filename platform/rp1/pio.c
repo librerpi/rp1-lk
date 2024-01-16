@@ -35,10 +35,10 @@ static void pio_entry(const struct app_descriptor *app, void *args) {
 
   int setbase = 8;
   int setcount = 1;
-  int sideset_count = 0;
+  int sideset_count = 2;
   int sideset_base = 8;
 
-  *REG32(0xf00000e0) = (outbase & 0x1f) | ((setbase & 0x1f) << 5) | ((setcount & 7) << 26) | ((sideset_count & 0x7) << 26) | ((outcount & 0x1f) << 20) | ((sideset_base & 0x1f) << 10);
+  *REG32(0xf00000e0) = (outbase & 0x1f) | ((setbase & 0x1f) << 5) | ((setcount & 7) << 26) | ((sideset_count & 0x7) << 29) | ((outcount & 0x1f) << 20) | ((sideset_base & 0x1f) << 10);
   int progbase = 0;
   for (int i=0; i<(sizeof(uart_tx_program_instructions) / sizeof(uart_tx_program_instructions[0])); i++) {
     printf("%d 0x%x -> %d\n", i, uart_tx_program_instructions[i], i+progbase);
@@ -46,7 +46,7 @@ static void pio_entry(const struct app_descriptor *app, void *args) {
   }
   int wrap_bottom = progbase + uart_tx_wrap_target;
   int wrap_top = progbase + uart_tx_wrap;
-  *REG32(0xf00000d0) = ((wrap_bottom & 0x1f) << 7) | ((wrap_top & 0x1f) << 12);
+  *REG32(0xf00000d0) = ((wrap_bottom & 0x1f) << 7) | ((wrap_top & 0x1f) << 12) | (1<<30);
   *REG32(0xf00000cc) = 217 << 16;
 
   *REG32(PIO_SM0_INSTR) = 0xe081; // set output mode
@@ -54,10 +54,11 @@ static void pio_entry(const struct app_descriptor *app, void *args) {
   *REG32(0xf0000000) = 1 | (1<<4) | (1<<8); // enable and reset state
 
   while (true) {
-    for (int i=0; i<256; i++) {
+    for (int i=32; i<127; i++) {
       *REG32(PIO_TXF0) = i;
-      thread_sleep(500);
+      thread_sleep(100);
     }
+    *REG32(PIO_TXF0) = '\n';
     puts("loop");
   }
 }
