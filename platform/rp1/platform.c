@@ -96,17 +96,31 @@ static void mux_uart3_gpio89(void) {
   rp1_gpio_pad_config(9, 0xca);
 }
 
+static void whack_reset(int bank, int bit) {
+  // https://github.com/G33KatWork/RP1-Reverse-Engineering/blob/master/reversing/resets.py#L158-L227
+  *REG32((0x40014000 + (bank*4)) | 0x2000 ) = 1 << bit;
+  for (int i=0; i<66666666; i++) asm volatile ("nop");
+  *REG32((0x40014000 + (bank*4)) | 0x3000 ) = 1 << bit;
+  for (int i=0; i<66666666; i++) asm volatile ("nop");
+}
 
 void platform_early_init(void) {
     //novm_add_arena("mem", 0x10002000, 8 * 1024);
     // start the systick timer
     arm_cm_systick_init(200 * 1000 * 1000);
+
+    for (int i=0; i<6; i++) {
+      pl011_uart_register(i, 0x40030000 + (0x4000 * i));
+    }
+
+    //whack_reset(1, 27); // uart1
+
     //pl011_uart_init_early(0, 0x40030000);
     mux_uart1_gpio01();
     mux_uart3_gpio89();
-    pl011_uart_init_early(1, 0x40034000);
+    pl011_uart_init_early(1);
     //pl011_uart_init_early(2, 0x40038000);
-    pl011_uart_init_early(3, 0x4003c000);
+    pl011_uart_init_early(3);
     //pl011_uart_init_early(4, 0x40040000);
     //pl011_uart_init_early(5, 0x40044000);
     pl011_set_baud(1, 115200);
@@ -114,15 +128,15 @@ void platform_early_init(void) {
 }
 
 void platform_init(void) {
-  pl011_uart_init(1, uart1_IRQn, 0x40034000);
-  pl011_uart_init(3, uart3_IRQn, 0x4003c000);
+  pl011_uart_init(1, uart1_IRQn);
+  pl011_uart_init(3, uart3_IRQn);
+  puts("platform init finished");
 }
 
 status_t unmask_interrupt(unsigned int vector) {
   int group = vector/32;
   int bit = vector%32;
   NVIC->ISER[group] = 1 << bit;
-  printf("irq %d turned on\n", vector);
 
   return NO_ERROR;
 }

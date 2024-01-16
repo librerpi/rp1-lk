@@ -6,14 +6,16 @@
  * https://opensource.org/licenses/MIT
  */
 #include <assert.h>
+#include <platform/gpio.h>
+#include <dev/uart/pl011.h>
 #include <kernel/thread.h>
 #include <lib/cbuf.h>
 #include <lk/reg.h>
 #include <lk/trace.h>
 #include <platform/clock.h>
 #include <platform/debug.h>
-#include <stdio.h>
 #include <platform/interrupts.h>
+#include <stdio.h>
 #include <target/debugconfig.h>
 
 #define LOCAL_TRACE 0
@@ -36,7 +38,7 @@
 
 #define UARTREG(base, reg)  (*REG32((base)  + (reg)))
 
-#define RXBUF_SIZE 16
+#define RXBUF_SIZE 64
 
 static cbuf_t uart_rx_buf[NUM_UART];
 static uintptr_t uart_base[NUM_UART];
@@ -98,11 +100,11 @@ enum handler_return pl011_uart_irq(void *arg) {
     return resched ? INT_RESCHEDULE : INT_NO_RESCHEDULE;
 }
 
-void pl011_uart_init(int nr, int irq, uintptr_t base) {
-    assert(nr < NUM_UART);
-    uart_base[nr] = base;
+void pl011_uart_init(int port, int irq) {
+    assert(port < NUM_UART);
+    uintptr_t base = uart_to_ptr(port);
     // create circular buffer to hold received data
-    cbuf_initialize(&uart_rx_buf[nr], RXBUF_SIZE);
+    cbuf_initialize(&uart_rx_buf[port], RXBUF_SIZE);
 
 #ifdef HAVE_REG_IRQ
     register_int_handler(irq, &uart_irq, (void *)nr);
@@ -129,11 +131,24 @@ void pl011_uart_init(int nr, int irq, uintptr_t base) {
     unmask_interrupt(irq);
 }
 
-void pl011_uart_init_early(int nr, uintptr_t base) {
-    assert(nr < NUM_UART);
-    uart_base[nr] = base;
+void pl011_uart_register(int nr, uintptr_t base) {
+  assert(nr < NUM_UART);
+  uart_base[nr] = base;
+}
+
+void pl011_uart_init_early(int port) {
+    assert(port < NUM_UART);
+    uintptr_t base = uart_to_ptr(port);
     UARTREG(base, UART_CR) = 0; // shutdown the entire uart
-    UARTREG(uart_to_ptr(nr), UART_CR) = (1<<8)|(1<<0); // tx_enable, uarten
+
+    UARTREG(base, UART_LCRH) = (3<<5) // 8bit mode
+                | (1<<4); // fifo enable
+
+    // wait for BUSY to clear
+    while (UARTREG(base, UART_TFR) & (1<<3));
+
+    // TODO, figure out why this jams
+    //UARTREG(base, UART_CR) = (1<<8)|(1<<0); // tx_enable, uarten
 }
 
 int pl011_uart_putc(int port, char c) {
@@ -142,8 +157,13 @@ int pl011_uart_putc(int port, char c) {
   // if enable is clear, dont write
   if ( (UARTREG(base, UART_CR) & 1) == 0) return 1;
 
+  rp1_gpio_clear(2, 10);
+
   /* spin while fifo is full */
   while (UARTREG(base, UART_TFR) & (1<<5)) ;
+
+  rp1_gpio_set(2,10);
+
   UARTREG(base, UART_DR) = c;
 
   return 1;

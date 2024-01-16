@@ -2,6 +2,11 @@
 
 #include <lk/reg.h>
 
+#define RP1_RW_OFFSET                   0x0000
+#define RP1_XOR_OFFSET                  0x1000
+#define RP1_SET_OFFSET                  0x2000
+#define RP1_CLR_OFFSET                  0x3000
+
 struct gpiocfg {
   volatile uint32_t status;
   volatile uint32_t ctrl;
@@ -11,6 +16,7 @@ static volatile struct gpiocfg *const cfg = (volatile struct gpiocfg*)(0x400d000
 static volatile uint32_t *const pads_bank0_gpio = (volatile uint32_t*)(0x400f0000 + 0x4);
 
 static void rp1_gpio_set_ctrl(int pin, int function, int debounce) {
+  // TODO, other banks
   cfg[pin].ctrl = (function & 0x1f) | ((debounce & 0x7f) << 5);
 }
 
@@ -52,4 +58,13 @@ static void rp1_gpio_clear(int bank, int pin) {
     return;
   }
   *REG32(addr | 0x3000) = 1 << pin;
+}
+
+static void rp1_rio_set_direction(int bank, int pin, int out) {
+  uint32_t addr = 0x400e0000 + (0x4000 * bank);
+  addr += 4;
+  if (out) addr |= RP1_SET_OFFSET;
+  else addr |= RP1_CLR_OFFSET;
+
+  *REG32(addr) = 1<<pin;
 }
