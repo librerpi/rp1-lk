@@ -89,8 +89,8 @@ static void mux_uart1_gpio01(void) {
 }
 
 static void mux_uart3_gpio89(void) {
-  rp1_gpio_set_ctrl(8, 2, 4);
-  rp1_gpio_set_ctrl(9, 2, 4);
+  rp1_gpio_set_ctrl(8, 2, 4); // tx
+  rp1_gpio_set_ctrl(9, 2, 4); // rx
 
   rp1_gpio_pad_config(8, 0x50);
   rp1_gpio_pad_config(9, 0xca);
@@ -129,7 +129,7 @@ void platform_early_init(void) {
 
 void platform_init(void) {
   pl011_uart_init(1, uart1_IRQn);
-  pl011_uart_init(3, uart3_IRQn);
+  //pl011_uart_init(3, uart3_IRQn);
   puts("platform init finished");
 }
 

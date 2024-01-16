@@ -1,0 +1,12 @@
+.program uart_tx
+.side_set 1 opt
+
+; An 8n1 UART transmit program.
+; OUT pin 0 and side-set pin 0 are both mapped to UART TX pin.
+  set PINS, 1 ; force a high between bytes
+  pull            [6] ; Assert stop bit, or stall with line in idle state
+  set PINS, 0
+  set x, 7        [6] ; Preload bit counter, assert start bit for 8 clocks
+bitloop:              ; This loop will run 8 times (8n1 UART)
+  out pins, 1         ; Shift 1 bit from OSR to the first OUT pin
+  jmp x-- bitloop [6] ; Each loop iteration is 8 cycles.

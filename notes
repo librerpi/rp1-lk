@@ -10,3 +10,4 @@ RP1 bank 2 gpio 10, the red channel of the status led
 the RIO block is duplicated up here
 
 0xf0000000 PIO block?
+0xf0004000 PROC RIO
