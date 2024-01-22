@@ -11,3 +11,151 @@ the RIO block is duplicated up here
 
 0xf0000000 PIO block?
 0xf0004000 PROC RIO
+
+
+
+all known pi5 gpio:
+brcm,brcmstb-gpio 0x7d508500 (gpiochip0 - 32 lines)
+    appears to have 32+22 pins, but pi5 dts forces it down to 32+4 to reduce clutter from unused pins
+    0x7d504100 brcm,bcm2712-pinctrl
+    1     2712_BOOT_CS_N
+    2     2712_BOOT_MISO
+    3     2712_BOOT_MOSI
+    4     2712_BOOT_SCLK
+
+    14    PCIE_SDA
+    15    PCIE_SCL
+
+    20    PWR_GPIO
+    21    2712_G21_FS
+
+    24    BT_RTS
+    25    BT_CTS
+    26    BT_TXD
+    27    BT_RXD
+    28    WL_ON
+    29    BT_ON
+    30    WIFI_SDIO_CLK
+    31    WIFI_SDIO_CMD
+(gpiochip1 - 4 lines)
+    second bank on gpiochip0
+    0     WIFI_SDIO_D0
+    1     WIFI_SDIO_D1
+    2     WIFI_SDIO_D2
+    3     WIFI_SDIO_D3
+brcm,brcmstb-gpio 0x7d517c00 (gpiochip2 - 17 lines) "always on" gpio
+    appears to have 17+6 gpio
+    0x7d510700  brcm,bcm2712-aon-pinctrl
+    0     RP1_SDA     i2c3?
+    1     RP1_SCL
+    2     RP1_RUN
+    3     SD_IOVDD_SEL
+    4     SD_PWR_ON
+    5     SD_CDET_N
+    6     SD_FLG_N
+
+    8     2712_WAKE
+    9     2712_STAT_LED
+
+    12    PMIC_INT
+    13    UART_TX_FS
+    14    UART_RX_FS
+(gpiochip3 - 6 lines)
+    second bank of gpiochip2
+    0     HDMI0_SCL
+    1     HDMI0_SDA
+    2     HDMI1_SCL
+    3     HDMI1_SDA
+    4     PMIC_SCL
+    5     PMIC_SDA
+RP1 gpio: (gpiochip4 - 54 lines)
+  0x400d0000  io_bank0
+    28 gpio pins, numbered 0-27, all exposed on the main gpio header
+  0x400d4000  io_bank1
+    6 gpio pins, numbered 28-33
+    28    PCIE_RP1_WAKE
+    29    FAN_TACH
+    30    HOST_SDA
+    31    HOST_SCL
+    32    ETH_RST_N
+
+  0x400d8000  io_bank2
+    20 gpio pins, numbered 34-53
+
+    34    CD0_IO0_MICCLK
+    35    CD0_IO0_MICDAT0
+    36    RP1_PCIE_CLKREQ_N
+
+    38    CD0_SDA
+    39    CD0_SCL
+    40    CD1_SDA
+    41    CD1_SCL
+    42    USB_VBUS_EN
+    43    USB_OC_N
+    44    RP1_STAT_LED
+    45    FAN_PWM
+    46    CD1_IO0_MICCLK
+    47    2712_WAKE
+    48    CD1_IO1_MICDAT1
+    49    EN_MAX_USB_CUR
+  0x400e0000  sys_rio0
+  0x400e4000  sys_rio1
+  0x400e8000  sys_rio2
+  0x400f0000  pads_bank0
+  0x400f4000  pads_bank1
+  0x400f8000  pads_bank2
+  0x400fc000  pads_eth
+
+
+2712_BOOT_* are wired to the VPU boot rom
+linux maps it to spi10, and `flashrom -p linux_spi:dev=/dev/spidev10.0 --read flash.img` is able to read it
+
+PWR_GPIO is rigged up with gpio-keys, and will send the KEY_POWER signal when LOW
+
+BT_*, serial with hw flow control, and an enable pin
+
+WL_ON + WIFI_*, wifi enable and SDIO
+
+RP1_RUN RUN pin of the RP1, for resetting it
+RP1_SDA/RP1_SCL i2c over to the RP1, mainly for bootstrapping it, links to HOST_SDA/HOST_SCL
+
+2712_WAKE links bcm2712 and rp1
+
+RP1_STAT_LED    the red half of the status led
+2712_STAT_LED   the green half of the status led
+
+] dw 0xf0000000 0x200
+0xf0000000: 00000001 0f000f00 01000000 00000000
+0xf0000010: 00000000 00000000 00000000 00000000
+0xf0000020: 00000000 08111086 b80be7a1 f84d00d6
+0xf0000030: 1d7e9dc8 00000000 00000000 00000000
+0xf0000040: 00000100 00000100 00200408 00000000
+0xf0000050: 00000000 00000000 00000000 00000000
+0xf0000060: 00000000 00000000 00000000 00000000
+0xf0000070: 00000000 00000000 00000000 00000000
+0xf0000080: 00000000 00000000 00000000 00000000
+0xf0000090: 00000000 00000000 00000000 00000000
+0xf00000a0: 00000000 00000000 00000000 00000000
+0xf00000b0: 00000000 00000000 00000000 00000000
+0xf00000c0: 00000000 00000000 00000000 00d90000
+0xf00000d0: 40003000 000c0000 00000000 00009fa0
+0xf00000e0: 44102108 40000104 00000104 00010000
+0xf00000f0: 0001f000 000c0000 00000000 00009fa0
+
+0xf0000100: 14000000 40000104 00000104 00010000
+0xf0000110: 0001f000 000c0000 00000000 00009fa0
+0xf0000120: 14000000 40000104 00000104 00010000
+0xf0000130: 0001f000 000c0000 00000000 00009fa0
+0xf0000140: 14000000 40000104 00000104 000000f0
+0xf0000150: 00000000 00000000 00000000 00000000
+0xf0000160: 00000000 00000000 70696f32 00000000
+0xf0000170: 00000001 00000000 00000000 00000000
+0xf0000180: 00000001 00000000 00000000 00000000
+0xf0000190: 00000000 00000000 00000000 00000000
+0xf00001a0: 00000000 00000000 00000000 00000000
+0xf00001b0: 00000000 00000000 00000000 00000000
+0xf00001c0: 00000000 00000000 00000000 00000000
+0xf00001d0: 00000000 00000000 00000000 00000000
+0xf00001e0: 00000000 00000000 00000000 00000000
+0xf00001f0: 00000000 00000000 00000000 00000000
+

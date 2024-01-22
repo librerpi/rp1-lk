@@ -99,9 +99,9 @@ static void mux_uart3_gpio89(void) {
 static void whack_reset(int bank, int bit) {
   // https://github.com/G33KatWork/RP1-Reverse-Engineering/blob/master/reversing/resets.py#L158-L227
   *REG32((0x40014000 + (bank*4)) | 0x2000 ) = 1 << bit;
-  for (int i=0; i<66666666; i++) asm volatile ("nop");
+  for (int i=0; i<6666666; i++) asm volatile ("nop");
   *REG32((0x40014000 + (bank*4)) | 0x3000 ) = 1 << bit;
-  for (int i=0; i<66666666; i++) asm volatile ("nop");
+  for (int i=0; i<6666666; i++) asm volatile ("nop");
 }
 
 void platform_early_init(void) {
@@ -114,6 +114,7 @@ void platform_early_init(void) {
     }
 
     //whack_reset(1, 27); // uart1
+    whack_reset(0, 27); // PIO
 
     //pl011_uart_init_early(0, 0x40030000);
     mux_uart1_gpio01();
