@@ -8,6 +8,7 @@ LINKER_SCRIPT += $(BUILDDIR)/system-onesegment.ld
 
 MODULE_SRCS += $(LOCAL_DIR)/platform.c $(LOCAL_DIR)/irq.c $(LOCAL_DIR)/gpio.c
 MODULE_SRCS += $(LOCAL_DIR)/pio.c
+MODULE_SRCS += $(LOCAL_DIR)/dma.c
 
 PL011_UART_COUNT := 4
 

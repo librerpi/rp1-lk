@@ -12,6 +12,8 @@
 #define PIO_FDEBUG (PIO_BASE + 8)
 #define PIO_FLEVEL (PIO_BASE + 0xc)
 
+#define PIO_UNK           (PIO_BASE + 0x010)
+
 #define PIO_TXF0   (PIO_BASE + 0x14)
 #define PIO_TXF1   (PIO_BASE + 0x18)
 #define PIO_TXF2   (PIO_BASE + 0x1c)
@@ -106,6 +108,7 @@ static int watch_regs(void *arg) {
   uint32_t fdebug = 0;
   uint32_t flevel = 0;
   uint32_t unk1 = 0, unk2 = 0;
+  uint32_t unk;
   while (true) {
     uint32_t t = *REG32(PIO_FSTAT);
     if (t != fstat) printf("FSTAT 0x%x -> 0x%x\n", fstat, t);
@@ -127,6 +130,10 @@ static int watch_regs(void *arg) {
     t = *REG32(PIO_SM0_UNK2);
     if (t != unk2) printf("UNK2 0x%x -> 0x%x\n", unk2, t);
     unk2 = t;
+
+    t = *REG32(PIO_UNK);
+    if (t != unk) printf("UNK 0x%x -> 0x%x\n", unk, t);
+    unk = t;
 
     //thread_sleep(1);
     thread_yield();
