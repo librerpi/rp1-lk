@@ -1,0 +1,6 @@
+.program clock
+
+.wrap_target
+  SET PINS, 0
+  SET PINS, 1
+.wrap

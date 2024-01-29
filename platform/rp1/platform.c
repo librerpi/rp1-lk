@@ -22,8 +22,85 @@ static int cmd_uart3(int argc, const console_cmd_args *argv) {
   return 0;
 }
 
+#define CLK_BASE 0x40018000
+#define FC0_REF_KHZ                     (CLK_BASE + 0x0021c)
+#define FC0_MIN_KHZ                     (CLK_BASE + 0x00220)
+#define FC0_MAX_KHZ                     (CLK_BASE + 0x00224)
+#define FC0_DELAY                       (CLK_BASE + 0x00228)
+#define FC0_INTERVAL                    (CLK_BASE + 0x0022c)
+#define FC0_SRC                         (CLK_BASE + 0x00230)
+#define FC0_STATUS                      (CLK_BASE + 0x00234)
+#define FC0_RESULT                      (CLK_BASE + 0x00238)
+
+#define FC_SIZE                         0x20
+#define FC_COUNT                        8
+
+#define FC0_STATUS_DONE     (1<<4)
+#define FC0_STATUS_RUNNING  (1<<8)
+
+// based on drivers/clk/clk-rp1.c from linux
+static int measure_clock(unsigned int index, unsigned int src) {
+  int fc_offset = index * FC_SIZE;
+  if (src == 0) {
+    puts("invalid src");
+    return 0;
+  }
+  if (index >= FC_COUNT) {
+    puts("invalid index");
+    return 0;
+  }
+  unsigned int timeout = current_time() + 1000;
+  while (*REG32(FC0_STATUS + fc_offset) & FC0_STATUS_RUNNING) {
+    if (current_time() > timeout) {
+      puts("timeout waiting for fc to halt");
+      return 0;
+    }
+  }
+  *REG32(FC0_REF_KHZ + fc_offset) = 50000;
+  *REG32(FC0_MIN_KHZ + fc_offset) = 0;
+  *REG32(FC0_MAX_KHZ + fc_offset) = 0x1ffffff;
+  *REG32(FC0_INTERVAL + fc_offset) = 8;
+  *REG32(FC0_DELAY + fc_offset) = 7;
+  *REG32(FC0_SRC + fc_offset) = src;
+  timeout = current_time() + 1000;
+  while (*REG32(FC0_STATUS + fc_offset) & FC0_STATUS_DONE) {
+    if (current_time() > timeout) {
+      puts("timeout waiting for fc to halt");
+      return 0;
+    }
+  }
+  int result = *REG32(FC0_RESULT + fc_offset);
+  *REG32(FC0_SRC + fc_offset) = 0;
+  return result * 3650;
+}
+
+static int cmd_measure_clock(int argc, const console_cmd_args *argv) {
+  int index = 0;
+  int src = 1;
+  if (argv < 2) {
+    puts("usage: measure_clock <index> <src>");
+    return 0;
+  }
+  index = argv[1].u;
+  src = argv[2].u;
+  int clock = measure_clock(index, src);
+  printf("FC_NUM(%d, %d) == %d Hz\n", index, src, clock);
+  return 0;
+}
+static int cmd_measure_clocks(int argc, const console_cmd_args *argv) {
+  for (int index = 0; index < FC_COUNT; index++) {
+    for (int src = 1; src < 8; src++) {
+      int clock = measure_clock(index, src);
+      printf("FC_NUM(%d, %d) == %d Hz\n", index, src, clock);
+    }
+  }
+  return 0;
+}
+
 STATIC_COMMAND_START
 STATIC_COMMAND("uart3", "test uart3", &cmd_uart3)
+STATIC_COMMAND("measure_clock", "measure an rp1 clock", &cmd_measure_clock)
+STATIC_COMMAND("measure_clocks", "measure all rp1 clocks", &cmd_measure_clocks)
 STATIC_COMMAND_END(platform);
 
 /* un-overridden irq handler */
@@ -114,7 +191,7 @@ void platform_early_init(void) {
     }
 
     //whack_reset(1, 27); // uart1
-    whack_reset(0, 27); // PIO
+    //whack_reset(0, 27); // PIO
 
     //pl011_uart_init_early(0, 0x40030000);
     mux_uart1_gpio01();

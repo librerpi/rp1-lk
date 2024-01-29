@@ -8,6 +8,7 @@
 
 #define PICO_NO_HARDWARE 1
 #include "uart_tx.h"
+#include "clock.h"
 
 static int watch_regs(void*);
 thread_t *watcher_thread;
@@ -57,8 +58,38 @@ static void pio_uart(void) {
   //}
 }
 
-static void pio_logic_analyzer(void) {
-  int sm_idx = 0;
+static void pio_10mhz(int sm_idx, int progbase) {
+  volatile pio_sm_t *const sm = &pio_state_machines[sm_idx];
+
+  rp1_gpio_set_ctrl(8, 7, 4);
+  int outbase = 8;
+  int outcount = 1;
+
+  int setbase = 8;
+  int setcount = 1;
+  int sideset_count = 0;
+  int sideset_base = 0;
+
+  sm->pin_ctrl = (outbase & 0x1f) | ((setbase & 0x1f) << 5) | ((setcount & 7) << 26) | ((sideset_count & 0x7) << 29) | ((outcount & 0x1f) << 20) | ((sideset_base & 0x1f) << 10);
+
+  for (unsigned int i=0; i<(sizeof(clock_program_instructions) / sizeof(clock_program_instructions[0])); i++) {
+    printf("%d 0x%x -> %d\n", i, clock_program_instructions[i], i+progbase);
+    *REG32(PIO_INSTR_MEM0 + ((i + progbase) * 4)) = clock_program_instructions[i];
+  }
+  int wrap_bottom = progbase + clock_wrap_target;
+  int wrap_top = progbase + clock_wrap;
+  sm->exec_ctrl = ((wrap_bottom & 0x1f) << 7) | ((wrap_top & 0x1f) << 12) | (1<<30);
+  sm->clk_div = 10 << 16;
+
+  sm->instr = 0xe081; // set output mode
+  sm->instr = progbase;
+
+  uint32_t mask = 1 << sm_idx;
+
+  *REG32(PIO_CTRL | RP1_SET_OFFSET) = mask | (mask<<4) | (mask<<8); // enable and reset state
+}
+
+static void pio_logic_analyzer(int sm_idx, int in_base) {
   volatile pio_sm_t *const sm = &pio_state_machines[sm_idx];
 
   int outbase = 0;
@@ -69,24 +100,24 @@ static void pio_logic_analyzer(void) {
   int sideset_count = 0;
   int sideset_base = 0;
 
-  int in_base = 0;
-
   sm->pin_ctrl = (outbase & 0x1f) | ((setbase & 0x1f) << 5) | ((setcount & 7) << 26) | ((sideset_count & 0x7) << 29) | ((outcount & 0x1f) << 20) | ((sideset_base & 0x1f) << 10) | (in_base << 15);
 
-  *REG32(PIO_INSTR_MEM0) = (16) | (0 << 5) | (0 << 8) | (2 << 13);
+  int pins = 8;
+  *REG32(PIO_INSTR_MEM0) = pins | (0 << 5) | (0 << 8) | (2 << 13);
 
   int wrap_bottom = 0;
   int wrap_top = 0;
 
   sm->exec_ctrl = ((wrap_bottom & 0x1f) << 7) | ((wrap_top & 0x1f) << 12) | (0<<30);
-  sm->clk_div = 8 << 16;
-  sm->shift_ctrl = (1 << 16) | (0 << 20) | (1 << 31);
+  sm->clk_div = 1 << 16;
+  sm->shift_ctrl = (1 << 16) | (0 << 20) | (1 << 31)
+      | (0<<18); // 1=shiftright, 0=left
 
   int threshold = 8;
   sm->rx_dma = (1<<31) | (0 << 8) | threshold;
 
   uint32_t mask = 1 << sm_idx;
-  *REG32(PIO_CTRL) = mask | (mask<<4) | (mask<<8); // enable and reset state
+  *REG32(PIO_CTRL | RP1_SET_OFFSET) = mask | (mask<<4) | (mask<<8); // enable and reset state
 }
 
 static void pio_entry(const struct app_descriptor *app, void *args) {
@@ -97,7 +128,9 @@ static void pio_entry(const struct app_descriptor *app, void *args) {
   *REG32(PIO_CTRL) = 0; // stop all SM's
 
   //pio_uart();
-  pio_logic_analyzer();
+  pio_logic_analyzer(0, 8);
+  //pio_logic_analyzer(1, 16);
+  pio_10mhz(1, 10);
 }
 
 static int watch_regs(void *arg) {
@@ -114,10 +147,10 @@ static int watch_regs(void *arg) {
     fstat = t;
 #endif
 
-#if 1
+#if 0
     t = *REG32(PIO_FDEBUG);
     *REG32(PIO_FDEBUG) = t;
-    t = t & ~0xf;
+    //t = t & ~0xf;
     if (t) printf("%d: FDEBUG 0x%x\n", current_time(), t);
 #endif
 
