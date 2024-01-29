@@ -62,6 +62,7 @@ static void pio_10mhz(int sm_idx, int progbase) {
   volatile pio_sm_t *const sm = &pio_state_machines[sm_idx];
 
   rp1_gpio_set_ctrl(8, 7, 4);
+  rp1_set_pad(8, 0, 0, 0, 0, 0 /*drive*/, 1, 0);
   int outbase = 8;
   int outcount = 1;
 
